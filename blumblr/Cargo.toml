@@ -8,6 +8,8 @@ name = "tuono"
 path = ".tuono/main.rs"
 
 [dependencies]
+blumblr_core = { path = "../blumblr_core" }
 tuono_lib = "0.17.8"
 serde = { version = "1.0.202", features = ["derive"] }
-bsky-sdk = "0.1.15"
+futures = "0.3.31"
+dotenvy = "0.15.7"

@@ -1,8 +1,20 @@
-import type { JSX } from 'react'
-import type { TuonoProps } from 'tuono'
+import type { JSX } from "react";
+import type { TuonoProps } from "tuono";
 
+interface BskyPost {
+  author: {
+    displayName: string | undefined;
+    userName: string;
+    avatar: string | undefined;
+  };
+  text: string;
+  replies: number;
+  likes: number;
+  reposts: number;
+}
 interface IndexProps {
-  subtitle: string
+  subtitle: string;
+  posts: BskyPost[];
 }
 
 export default function IndexPage({
@@ -10,39 +22,26 @@ export default function IndexPage({
   isLoading,
 }: TuonoProps<IndexProps>): JSX.Element {
   if (isLoading) {
-    return <h1>Loading...</h1>
+    return <h1>Loading...</h1>;
   }
+
+  console.log("feed", data?.posts);
 
   return (
     <>
-      <header className="header">
-        <a href="https://crates.io/crates/tuono" target="_blank">
-          Crates
-        </a>
-        <a href="https://www.npmjs.com/package/tuono" target="_blank">
-          Npm
-        </a>
-      </header>
-      <div className="title-wrap">
-        <h1 className="title">
-          TU<span>O</span>NO
-        </h1>
-        <div className="logo">
-          <img src="rust.svg" className="rust" />
-          <img src="react.svg" className="react" />
-        </div>
-      </div>
-      <div className="subtitle-wrap">
-        <p className="subtitle">{data?.subtitle}</p>
-        <a
-          href="https://github.com/tuono-labs/tuono"
-          target="_blank"
-          className="button"
-          type="button"
-        >
-          Github
-        </a>
-      </div>
+      <main>
+        {data?.posts.map((post) => {
+          return (
+            <section>
+              <header>
+                <img src={post.author.avatar} width="24px" />
+                {post.author.displayName ? post.author.displayName : ""}
+              </header>
+              <div>{post.text}</div>
+            </section>
+          );
+        })}
+      </main>
     </>
-  )
+  );
 }
