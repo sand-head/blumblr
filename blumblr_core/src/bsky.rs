@@ -6,11 +6,11 @@ use bsky_sdk::{
     api::{
         app::bsky::{
             embed::record,
-            feed::{get_author_feed, post::RecordData},
+            feed::{get_author_feed, get_post_thread, post::RecordData},
         },
         types::{
             string::{AtIdentifier, Did},
-            TryFromUnknown,
+            LimitedU16, TryFromUnknown,
         },
     },
     BskyAgent,
@@ -55,15 +55,13 @@ impl BskyClient {
         let json = serde_json::to_string_pretty(&feed.data.feed)?;
         println!("{}", json);
 
-        Ok(feed
-            .data
-            .feed
-            .iter()
-            .map(|p| {
+        Ok(
+            futures::future::join_all(feed.data.feed.iter().map(|p| async {
                 let record = match RecordData::try_from_unknown(p.post.record.clone()) {
                     Ok(record) => record,
                     Err(_) => panic!("Could not deserialize record data"),
                 };
+                let _ = self.get_post_thread(p.post.uri.clone()).await;
                 Post {
                     author: PostAuthor {
                         display_name: p.post.author.display_name.clone(),
@@ -75,7 +73,31 @@ impl BskyClient {
                     likes: p.post.like_count.unwrap_or(0),
                     reposts: p.post.repost_count.unwrap_or(0),
                 }
-            })
-            .collect())
+            }))
+            .await,
+        )
+    }
+
+    async fn get_post_thread(&self, uri: String) -> Result<Vec<Post>, Box<dyn Error>> {
+        let thread = self
+            .agent
+            .api
+            .app
+            .bsky
+            .feed
+            .get_post_thread(
+                get_post_thread::ParametersData {
+                    depth: Some(LimitedU16::try_from(0).unwrap()),
+                    parent_height: None,
+                    uri,
+                }
+                .into(),
+            )
+            .await?;
+
+        let json = serde_json::to_string_pretty(&thread.data.thread)?;
+        println!("{}", json);
+
+        Ok(Vec::new())
     }
 }
