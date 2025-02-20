@@ -22,19 +22,36 @@ export default function IndexPage({
       <main>
         {data?.posts.map((post) => {
           return (
-            <section>
-              <header>
-                <img src={post.author.avatar ?? undefined} width="24px" />
-                {post.author.displayName ? post.author.displayName : ""}
-              </header>
-              <div>{post.text}</div>
-              <div>
-                {post.embed?.$type === "images" &&
-                  post.embed.images.map((i) => (
-                    <img src={i.src} alt={i.altText ?? undefined} />
-                  ))}
-              </div>
-            </section>
+            <>
+              {post.thread?.map((parent) => (
+                <section>
+                  <header>
+                    <img src={parent.author.avatar ?? undefined} width="24px" />
+                    {parent.author.displayName ? parent.author.displayName : ""}
+                  </header>
+                  <div>{parent.text}</div>
+                  <div>
+                    {parent.embed?.$type === "images" &&
+                      parent.embed.images.map((i) => (
+                        <img src={i.src} alt={i.altText ?? undefined} />
+                      ))}
+                  </div>
+                </section>
+              ))}
+              <section>
+                <header>
+                  <img src={post.author.avatar ?? undefined} width="24px" />
+                  {post.author.displayName ? post.author.displayName : ""}
+                </header>
+                <div>{post.text}</div>
+                <div>
+                  {post.embed?.$type === "images" &&
+                    post.embed.images.map((i) => (
+                      <img src={i.src} alt={i.altText ?? undefined} />
+                    ))}
+                </div>
+              </section>
+            </>
           );
         })}
       </main>

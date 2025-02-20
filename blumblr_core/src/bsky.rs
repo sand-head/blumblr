@@ -4,18 +4,49 @@ pub mod post;
 
 use bsky_sdk::{
     api::{
-        app::bsky::{
-            embed,
-            feed::{defs::PostViewEmbedRefs, get_author_feed, get_post_thread, post::RecordData},
+        app::bsky::feed::{
+            defs::ThreadViewPostParentRefs,
+            get_author_feed,
+            get_post_thread::{self, OutputThreadRefs},
         },
         types::{
             string::{AtIdentifier, Did},
-            LimitedU16, TryFromUnknown, Union,
+            LimitedU16, Union,
         },
     },
     BskyAgent,
 };
-use post::{Post, PostAuthor, PostEmbed, PostImage};
+use post::Post;
+
+fn unnest_post_thread(thread: Union<OutputThreadRefs>) -> Vec<Post> {
+    let mut posts = Vec::new();
+
+    if let Union::Refs(thread_ref) = thread {
+        if let OutputThreadRefs::AppBskyFeedDefsThreadViewPost(post_data) = thread_ref {
+            if let Some(parent) = &post_data.parent {
+                posts.append(&mut unnest_post_thread_parents(parent));
+            }
+        }
+    }
+
+    posts
+}
+
+fn unnest_post_thread_parents(parent: &Union<ThreadViewPostParentRefs>) -> Vec<Post> {
+    let mut posts = Vec::new();
+
+    if let Union::Refs(parent_ref) = parent {
+        if let ThreadViewPostParentRefs::ThreadViewPost(post_data) = parent_ref {
+            if let Some(parent) = &post_data.parent {
+                posts.append(&mut unnest_post_thread_parents(parent));
+            }
+
+            posts.push(Post::from_bsky(&post_data.post));
+        }
+    }
+
+    posts
+}
 
 #[derive(Clone)]
 pub struct BskyClient {
@@ -57,46 +88,11 @@ impl BskyClient {
 
         Ok(
             futures::future::join_all(feed.data.feed.iter().map(|p| async {
-                let record = match RecordData::try_from_unknown(p.post.record.clone()) {
-                    Ok(record) => record,
-                    Err(_) => panic!("Could not deserialize record data"),
-                };
-                let _ = self.get_post_thread(p.post.uri.clone()).await;
-                Post {
-                    author: PostAuthor {
-                        display_name: p.post.author.display_name.clone(),
-                        user_name: p.post.author.handle.to_string(),
-                        avatar: p.post.author.avatar.clone(),
-                    },
-                    text: record.text,
-                    replies: p.post.reply_count.unwrap_or(0),
-                    likes: p.post.like_count.unwrap_or(0),
-                    reposts: p.post.repost_count.unwrap_or(0),
-                    embed: match &p.post.embed {
-                        Some(embed) => match embed {
-                            Union::Refs(embed) => match embed {
-                                PostViewEmbedRefs::AppBskyEmbedImagesView(object) => {
-                                    Some(PostEmbed::Images {
-                                        images: object
-                                            .images
-                                            .iter()
-                                            .map(|i| PostImage {
-                                                src: i.fullsize.clone(),
-                                                alt_text: Some(i.alt.clone()),
-                                            })
-                                            .collect(),
-                                    })
-                                }
-                                PostViewEmbedRefs::AppBskyEmbedVideoView(object) => None,
-                                PostViewEmbedRefs::AppBskyEmbedExternalView(object) => None,
-                                PostViewEmbedRefs::AppBskyEmbedRecordView(object) => None,
-                                PostViewEmbedRefs::AppBskyEmbedRecordWithMediaView(object) => None,
-                            },
-                            Union::Unknown(_) => None,
-                        },
-                        None => None,
-                    },
-                }
+                let thread = self.get_post_thread(p.post.uri.clone()).await.unwrap();
+                let mut post = Post::from_bsky(&p.post);
+                post.thread = Some(thread);
+
+                post
             }))
             .await,
         )
@@ -122,6 +118,6 @@ impl BskyClient {
         let json = serde_json::to_string_pretty(&thread.data.thread)?;
         println!("{}", json);
 
-        Ok(Vec::new())
+        Ok(unnest_post_thread(thread.data.thread))
     }
 }
