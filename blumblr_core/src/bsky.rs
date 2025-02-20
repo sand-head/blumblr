@@ -5,17 +5,17 @@ pub mod post;
 use bsky_sdk::{
     api::{
         app::bsky::{
-            embed::record,
-            feed::{get_author_feed, get_post_thread, post::RecordData},
+            embed,
+            feed::{defs::PostViewEmbedRefs, get_author_feed, get_post_thread, post::RecordData},
         },
         types::{
             string::{AtIdentifier, Did},
-            LimitedU16, TryFromUnknown,
+            LimitedU16, TryFromUnknown, Union,
         },
     },
     BskyAgent,
 };
-use post::{Post, PostAuthor};
+use post::{Post, PostAuthor, PostEmbed, PostImage};
 
 #[derive(Clone)]
 pub struct BskyClient {
@@ -72,6 +72,30 @@ impl BskyClient {
                     replies: p.post.reply_count.unwrap_or(0),
                     likes: p.post.like_count.unwrap_or(0),
                     reposts: p.post.repost_count.unwrap_or(0),
+                    embed: match &p.post.embed {
+                        Some(embed) => match embed {
+                            Union::Refs(embed) => match embed {
+                                PostViewEmbedRefs::AppBskyEmbedImagesView(object) => {
+                                    Some(PostEmbed::Images {
+                                        images: object
+                                            .images
+                                            .iter()
+                                            .map(|i| PostImage {
+                                                src: i.fullsize.clone(),
+                                                alt_text: Some(i.alt.clone()),
+                                            })
+                                            .collect(),
+                                    })
+                                }
+                                PostViewEmbedRefs::AppBskyEmbedVideoView(object) => None,
+                                PostViewEmbedRefs::AppBskyEmbedExternalView(object) => None,
+                                PostViewEmbedRefs::AppBskyEmbedRecordView(object) => None,
+                                PostViewEmbedRefs::AppBskyEmbedRecordWithMediaView(object) => None,
+                            },
+                            Union::Unknown(_) => None,
+                        },
+                        None => None,
+                    },
                 }
             }))
             .await,

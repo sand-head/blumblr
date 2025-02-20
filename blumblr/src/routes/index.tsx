@@ -1,20 +1,10 @@
 import type { JSX } from "react";
 import type { TuonoProps } from "tuono";
+import { Post } from "@core/Post";
 
-interface BskyPost {
-  author: {
-    displayName: string | undefined;
-    userName: string;
-    avatar: string | undefined;
-  };
-  text: string;
-  replies: number;
-  likes: number;
-  reposts: number;
-}
 interface IndexProps {
   subtitle: string;
-  posts: BskyPost[];
+  posts: Post[];
 }
 
 export default function IndexPage({
@@ -34,10 +24,16 @@ export default function IndexPage({
           return (
             <section>
               <header>
-                <img src={post.author.avatar} width="24px" />
+                <img src={post.author.avatar ?? undefined} width="24px" />
                 {post.author.displayName ? post.author.displayName : ""}
               </header>
               <div>{post.text}</div>
+              <div>
+                {post.embed?.$type === "images" &&
+                  post.embed.images.map((i) => (
+                    <img src={i.src} alt={i.altText ?? undefined} />
+                  ))}
+              </div>
             </section>
           );
         })}
